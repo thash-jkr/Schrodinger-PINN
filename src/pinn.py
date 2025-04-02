@@ -4,17 +4,17 @@ import torch.nn as nn
 from scipy.constants import pi, speed_of_light, elementary_charge, electron_mass, hbar
 
 me_SI = electron_mass
-hbar_SI = hbar   
+hbar_SI = hbar
 e_SI = elementary_charge
 c_SI = speed_of_light
 
 meV = e_SI * 1e-3
-nm = 1e-9                    
-ps = 1e-12                    
+nm = 1e-9
+ps = 1e-12
 
-c = c_SI * ps / nm           
-hbar_meV_ps = hbar_SI / (meV * ps)  
-me = me_SI * c_SI**2 / meV / c**2    
+c = c_SI * ps / nm
+hbar_meV_ps = hbar_SI / (meV * ps)
+me = me_SI * c_SI**2 / meV / c**2
 
 hbar = hbar_meV_ps
 m = me
@@ -108,7 +108,8 @@ steps = 5000
 def exp_decay(step):
     return decay_rate ** (step / steps)
 
-scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=exp_decay)
+# scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=exp_decay)
+scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=150000)
 
 # Loss function
 def loss_function(x_collocation_torch, t_collocation_torch, x_initial_torch, t_initial_torch, x_boundary_torch, t_boundary_torch):
@@ -152,7 +153,7 @@ def loss_function(x_collocation_torch, t_collocation_torch, x_initial_torch, t_i
     return physics_loss, initial_condition_loss, boundary_condition_loss
 
 # Training loop
-epochs = 200000
+epochs = 150000
 history = []
 
 for epoch in range(1, epochs+1):
@@ -166,6 +167,14 @@ for epoch in range(1, epochs+1):
     scheduler.step()
 
     history.append({"total_loss": total_loss.item(), "physics_loss": physics_loss.item(), "initial_condition_loss": initial_condition_loss.item(), "boundary_condition_loss": boundary_condition_loss.item()})
+
+    if epoch % 15000 == 0:
+        print(f"Epoch {epoch}/{epochs}")
+        print(f"Total loss: {total_loss.item():.4e}")
+        print(f"Physics loss: {physics_loss.item():.4e}")
+        print(f"Initial condition loss: {initial_condition_loss.item():.4e}")
+        print(f"Boundary condition loss: {boundary_condition_loss.item():.4e}")
+        print("-" * 50)
 
 #saving
 import os
