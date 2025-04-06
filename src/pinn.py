@@ -172,8 +172,8 @@ model = PINN(layers, 0, t2).to(device)
 
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001, betas=(0.9, 0.9))
 
-decay_rate = 0.98
-steps = 5000
+decay_rate = 0.9
+steps = 4000
 
 def exp_decay(step):
     return decay_rate ** (step / steps)
@@ -191,7 +191,7 @@ import json
 
 os.makedirs("results", exist_ok=True)
 
-torch.save(model.state_dict(), "results/trained_model.pth")
+torch.save(model.state_dict(), "results/trained_model2.pth")
 
-with open("results/training_history.json", "w") as f:
+with open("results/training_history2.json", "w") as f:
     json.dump(history, f)
