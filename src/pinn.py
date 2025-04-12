@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import json
 import torch.nn as nn
 from scipy.constants import pi, speed_of_light, elementary_charge, electron_mass, hbar
 
@@ -55,8 +56,8 @@ class PINN(nn.Module):
         
         self.output_layer = nn.Linear(layers[-2], layers[-1])
 
-        self.n_collocation = 3000
-        self.n_initial = 1000
+        self.n_collocation = 4000
+        self.n_initial = 2000
         self.n_boundary = 1000
 
         self.t_min = t_min
@@ -65,11 +66,14 @@ class PINN(nn.Module):
     def forward(self, inputs):
         x, t = inputs
         X = torch.stack((x, t), dim=1)
-        activation = nn.SiLU()
+        activation_1 = nn.Tanh()
+        activation_2 = nn.SiLU()
+        i = 1
     
         for layer in self.hidden_layers:
             X = layer(X)
-            X = activation(X)
+            X = activation_1(X) if i < 2 else activation_2(X)
+            i += 1
     
         output = self.output_layer(X)
         psi_real = output[:, 0]
@@ -165,10 +169,10 @@ class PINN(nn.Module):
 
         return history
 
-layers = [2, 512, 512, 512, 512, 512, 512, 2]
+layers = [2, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 2]
 
 # Model setup
-model = PINN(layers, 0, t2).to(device)
+model = PINN(layers, 0, 20).to(device)
 
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001, betas=(0.9, 0.9))
 
@@ -183,15 +187,9 @@ scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=exp_decay)
 def ground_state(x, t):
     return (((m * omega) / (np.pi * hbar)) ** 0.25) * torch.exp(((-m * omega) / (2 * hbar)) * (x ** 2)), 0
 
-history = model.train_model(optimizer, scheduler, ground_state, 150000)
+history = model.train_model(optimizer, scheduler, ground_state, 200000)
 
-#saving
-import os
-import json
+torch.save(model.state_dict(), "Schrodinger-PINN/src/results/tanh/model_5.pth")
 
-os.makedirs("results", exist_ok=True)
-
-torch.save(model.state_dict(), "results/trained_model2.pth")
-
-with open("results/training_history2.json", "w") as f:
+with open("Schrodinger-PINN/src/results/tanh/history_5.json", "w") as f:
     json.dump(history, f)
