@@ -187,9 +187,9 @@ scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=exp_decay)
 def ground_state(x, t):
     return (((m * omega) / (np.pi * hbar)) ** 0.25) * torch.exp(((-m * omega) / (2 * hbar)) * (x ** 2)), 0
 
-history = model.train_model(optimizer, scheduler, ground_state, 200000)
+history = model.train_model(optimizer, scheduler, ground_state, 300000)
 
-torch.save(model.state_dict(), "Schrodinger-PINN/src/results/tanh/model_5.pth")
+torch.save(model.state_dict(), "Schrodinger-PINN/src/results/tanh/model_6.pth")
 
-with open("Schrodinger-PINN/src/results/tanh/history_5.json", "w") as f:
+with open("Schrodinger-PINN/src/results/tanh/history_6.json", "w") as f:
     json.dump(history, f)
