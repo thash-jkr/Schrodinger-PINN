@@ -56,7 +56,7 @@ class PINN(nn.Module):
         
         self.output_layer = nn.Linear(layers[-2], layers[-1])
 
-        self.n_collocation = 4000
+        self.n_collocation = 5000
         self.n_initial = 2000
         self.n_boundary = 1000
 
@@ -86,12 +86,16 @@ class PINN(nn.Module):
         x_qd_collocation = np.where(t_collocation < t1, x0, np.where(t_collocation < t1 + (x1 - x0) / vQD, x0 + vQD * (t_collocation - t1), x1))
         x_collocation = np.random.normal(loc=x_qd_collocation, scale=25.0, size=self.n_collocation)
     
-        x_c = np.where(T_min < t1, x0, np.where(T_min < t1 + (x1 - x0) / vQD, x0 + vQD * (T_min - t1), x1))
+        x_c = 0
         x_initial = np.random.normal(loc=x_c, scale=25.0, size=self.n_initial)
         t_initial = np.full(self.n_initial, T_min)
         
         x_boundary = np.concatenate([np.full(self.n_boundary // 2, x_min), np.full(self.n_boundary // 2, x_max)])
         t_boundary = np.random.uniform(T_min, T_max, self.n_boundary)
+
+        x_cont_1 = np.random.normal(loc=x0, scale=5, size=500)
+        x_cont_2 = np.random.normal(loc=x1, scale=5, size=500)
+        x_cont = np.concatenate((x_cont_1, x_cont_2))
         
         x_collocation_torch = torch.from_numpy(x_collocation).float().to(device)
         t_collocation_torch = torch.from_numpy(t_collocation).float().to(device)
@@ -101,10 +105,12 @@ class PINN(nn.Module):
         
         x_boundary_torch = torch.from_numpy(x_boundary).float().to(device)
         t_boundary_torch = torch.from_numpy(t_boundary).float().to(device)
-    
-        return x_collocation_torch, t_collocation_torch, x_initial_torch, t_initial_torch, x_boundary_torch, t_boundary_torch
 
-    def loss_function(self, initial_condition, x_collocation_torch, t_collocation_torch, x_initial_torch, t_initial_torch, x_boundary_torch, t_boundary_torch):
+        x_cont_torch = torch.from_numpy(x_cont).float().to(device)
+    
+        return x_collocation_torch, t_collocation_torch, x_initial_torch, t_initial_torch, x_boundary_torch, t_boundary_torch, x_cont_torch
+
+    def loss_function(self, initial_condition, x_collocation_torch, t_collocation_torch, x_initial_torch, t_initial_torch, x_boundary_torch, t_boundary_torch, x_cont_torch):
         #pde loss
         x_collocation_torch = x_collocation_torch.clone().requires_grad_(True)
         t_collocation_torch = t_collocation_torch.clone().requires_grad_(True)
@@ -141,8 +147,41 @@ class PINN(nn.Module):
         #boundary condition loss
         u_b, v_b = self((x_boundary_torch, t_boundary_torch))
         boundary_condition_loss = torch.mean(u_b ** 2) + torch.mean(v_b ** 2)
+
+
+
+
+        #continuity loss
+        eps = 0.0001
+
+        def psi_at_time(t_val):
+            t_vec = t_val * torch.ones_like(x_cont_torch)
+            return self((x_cont_torch, t_vec))
         
-        return physics_loss, initial_condition_loss, boundary_condition_loss
+        u1_left,  v1_left  = psi_at_time(t1 - eps)
+        u1_right, v1_right = psi_at_time(t1 + eps)
+        u2_left,  v2_left  = psi_at_time(t2 - eps)
+        u2_right, v2_right = psi_at_time(t2 + eps)
+
+        cont_loss_1 = torch.mean((u1_left - u1_right) ** 2 + (v1_left - v1_right) ** 2)
+        cont_loss_2 = torch.mean((u2_left - u2_right) ** 2 + (v2_left - v2_right) ** 2)
+
+        # du1l_dx = torch.autograd.grad(u1_left,  x_cont_torch, torch.ones_like(u1_left),  create_graph=True)[0]
+        # du1r_dx = torch.autograd.grad(u1_right, x_cont_torch, torch.ones_like(u1_right), create_graph=True)[0]
+        # dv1l_dx = torch.autograd.grad(v1_left,  x_cont_torch, torch.ones_like(v1_left),  create_graph=True)[0]
+        # dv1r_dx = torch.autograd.grad(v1_right, x_cont_torch, torch.ones_like(v1_right), create_graph=True)[0]
+        
+        # du2l_dx = torch.autograd.grad(u2_left,  x_cont_torch, torch.ones_like(u2_left),  create_graph=True)[0]
+        # du2r_dx = torch.autograd.grad(u2_right, x_cont_torch, torch.ones_like(u2_right), create_graph=True)[0]
+        # dv2l_dx = torch.autograd.grad(v2_left,  x_cont_torch, torch.ones_like(v2_left),  create_graph=True)[0]
+        # dv2r_dx = torch.autograd.grad(v2_right, x_cont_torch, torch.ones_like(v2_right), create_graph=True)[0]
+        
+        # grad_cont_t1 = torch.mean((du1l_dx-du1r_dx) ** 2 + (dv1l_dx-dv1r_dx) ** 2)
+        # grad_cont_t2 = torch.mean((du2l_dx-du2r_dx) ** 2 + (dv2l_dx-dv2r_dx) ** 2)
+
+        cont_loss = cont_loss_1 + cont_loss_2 #+ grad_cont_t1 + grad_cont_t2
+        
+        return physics_loss, initial_condition_loss, boundary_condition_loss, cont_loss
 
     def train_model(self, optimizer, scheduler, initial_condition, epochs):
         history = []
@@ -150,26 +189,35 @@ class PINN(nn.Module):
         for epoch in range(1, epochs+1):
             optimizer.zero_grad()
             
-            physics_loss, initial_condition_loss, boundary_condition_loss = self.loss_function(initial_condition, *self.generator(self.t_min, self.t_max))
-            total_loss = 10 * physics_loss + initial_condition_loss + boundary_condition_loss
+            physics_loss, initial_condition_loss, boundary_condition_loss, cont_loss = self.loss_function(initial_condition, *self.generator(self.t_min, self.t_max))
+            total_loss = 10 * physics_loss + initial_condition_loss + boundary_condition_loss + cont_loss
             
             total_loss.backward()
             optimizer.step()
             scheduler.step()
         
-            history.append({"total_loss": total_loss.item() ,"physics_loss": physics_loss.item(), "initial_condition_loss": initial_condition_loss.item(), "boundary_condition_loss": boundary_condition_loss.item()})
+            history.append(
+                {
+                    "total_loss": total_loss.item(),
+                    "physics_loss": physics_loss.item(),
+                    "initial_condition_loss": initial_condition_loss.item(),
+                    "boundary_condition_loss": boundary_condition_loss.item(),
+                    "continuity_loss": cont_loss.item()
+                }
+            )
             
-            if epoch % 1000 == 0:
+            if epoch % 10 == 0:
                 print(f"Epoch {epoch}/{epochs}")
                 print(f"Total loss: {total_loss.item():.4e}")
                 print(f"Physics loss: {physics_loss.item():.4e}")
                 print(f"Initial condition loss: {initial_condition_loss.item():.4e}")
                 print(f"Boundary condition loss: {boundary_condition_loss.item():.4e}")
+                print(f"Continuity loss: {cont_loss.item():.4e}")
                 print("-" * 50)
 
         return history
 
-layers = [2, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 2]
+layers = [2, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 2]
 
 # Model setup
 model = PINN(layers, 0, 20).to(device)
@@ -187,9 +235,9 @@ scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=exp_decay)
 def ground_state(x, t):
     return (((m * omega) / (np.pi * hbar)) ** 0.25) * torch.exp(((-m * omega) / (2 * hbar)) * (x ** 2)), 0
 
-history = model.train_model(optimizer, scheduler, ground_state, 300000)
+history = model.train_model(optimizer, scheduler, ground_state, 200000)
 
-torch.save(model.state_dict(), "Schrodinger-PINN/src/results/tanh/model_6.pth")
+torch.save(model.state_dict(), "Schrodinger-PINN/src/results/newloss/model_7.pth")
 
-with open("Schrodinger-PINN/src/results/tanh/history_6.json", "w") as f:
+with open("Schrodinger-PINN/src/results/newloss/history_7.json", "w") as f:
     json.dump(history, f)
