@@ -55,9 +55,9 @@ class PINN(nn.Module):
         
         self.output_layer = nn.Linear(layers[-2], layers[-1])
 
-        self.n_collocation = 6000
-        self.n_initial = 2000
-        self.n_boundary = 1000
+        self.n_collocation = 5000
+        self.n_initial = 500
+        self.n_boundary = 500
 
         self.t_min = t_min
         self.t_max = t_max
@@ -158,7 +158,7 @@ class PINN(nn.Module):
             optimizer.zero_grad()
             
             physics_loss, initial_condition_loss, boundary_condition_loss = self.loss_function(initial_condition, *self.generator(self.t_min, self.t_max))
-            total_loss = 10 * physics_loss + initial_condition_loss + boundary_condition_loss
+            total_loss = 16 * physics_loss + initial_condition_loss + boundary_condition_loss
             
             total_loss.backward()
             optimizer.step()
@@ -203,7 +203,7 @@ def ground_state(x, t):
 
 history = model.train_model(optimizer, scheduler, ground_state, 300000)
 
-torch.save(model.state_dict(), "Schrodinger-PINN/src/results/hybrid/model_3.pth")
+torch.save(model.state_dict(), "Schrodinger-PINN/src/results/hybrid/model_6.pth")
 
-with open("Schrodinger-PINN/src/results/hybrid/history_3.json", "w") as f:
+with open("Schrodinger-PINN/src/results/hybrid/history_6.json", "w") as f:
     json.dump(history, f)

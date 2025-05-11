@@ -57,8 +57,8 @@ class PINN(nn.Module):
         self.output_layer = nn.Linear(layers[-2], layers[-1])
 
         self.n_collocation = 5000
-        self.n_initial = 2000
-        self.n_boundary = 1000
+        self.n_initial = 500
+        self.n_boundary = 500
 
         self.t_min = t_min
         self.t_max = t_max
@@ -81,14 +81,18 @@ class PINN(nn.Module):
         
         return psi_real, psi_img
 
-    def generator(self, T_min, T_max):
+    def generator(self, T_min, T_max, seed):
         n_focus = 500
-        t_collocation = np.random.uniform(T_min, T_max, self.n_collocation - 2 * n_focus)
-        t1_focus = np.random.normal(loc=t1, scale=0.5, size=n_focus)
-        t2_focus = np.random.normal(loc=t2, scale=0.5, size=n_focus)
+        rng = np.random.default_rng(seed)
+        t_collocation = rng.uniform(T_min, T_max, self.n_collocation - 2 * n_focus)
+        rng = np.random.default_rng(seed)
+        t1_focus = rng.normal(loc=t1, scale=0.5, size=n_focus)
+        rng = np.random.default_rng(seed)
+        t2_focus = rng.normal(loc=t2, scale=0.5, size=n_focus)
         t_collocation = np.concatenate((t_collocation, t1_focus, t2_focus))
         x_qd_collocation = np.where(t_collocation < t1, x0, np.where(t_collocation < t1 + (x1 - x0) / vQD, x0 + vQD * (t_collocation - t1), x1))
-        x_collocation = np.random.normal(loc=x_qd_collocation, scale=25.0, size=self.n_collocation)
+        rng = np.random.default_rng(int(seed + 1e7))
+        x_collocation = rng.normal(loc=x_qd_collocation, scale=25.0, size=self.n_collocation)
     
         x_c = 0
         x_initial = np.random.normal(loc=x_c, scale=25.0, size=self.n_initial)
@@ -150,13 +154,12 @@ class PINN(nn.Module):
 
     def train_model(self, optimizer, scheduler, initial_condition, epochs):
         history = []
-        x_collocation_torch, t_collocation_torch, x_initial_torch, t_initial_torch, x_boundary_torch, t_boundary_torch = self.generator(self.t_min, self.t_max)
         
         for epoch in range(1, epochs+1):
             optimizer.zero_grad()
             
-            physics_loss, initial_condition_loss, boundary_condition_loss = self.loss_function(initial_condition, x_collocation_torch, t_collocation_torch, x_initial_torch, t_initial_torch, x_boundary_torch, t_boundary_torch)
-            total_loss = 10 * physics_loss + initial_condition_loss + boundary_condition_loss
+            physics_loss, initial_condition_loss, boundary_condition_loss = self.loss_function(initial_condition, *self.generator(self.t_min, self.t_max, epoch % 64))
+            total_loss = 16 * physics_loss + initial_condition_loss + boundary_condition_loss
             
             total_loss.backward()
             optimizer.step()
@@ -181,7 +184,7 @@ class PINN(nn.Module):
 
         return history
 
-layers = [2, 512, 512, 512, 512, 512, 512, 2]
+layers = [2, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 2]
 
 # Model setup
 model = PINN(layers, 0, 20).to(device)
@@ -199,7 +202,7 @@ scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=exp_decay)
 def ground_state(x, t):
     return (((m * omega) / (np.pi * hbar)) ** 0.25) * torch.exp(((-m * omega) / (2 * hbar)) * (x ** 2)), 0
 
-history = model.train_model(optimizer, scheduler, ground_state, 100000)
+history = model.train_model(optimizer, scheduler, ground_state, 250000)
 
 # lbfgs = torch.optim.LBFGS(
 #     model.parameters(),
@@ -209,22 +212,23 @@ history = model.train_model(optimizer, scheduler, ground_state, 100000)
 #     line_search_fn="strong_wolfe"
 # )
 
-# lbfgs_points = model.generator(model.t_min, model.t_max)
-
-# def lbfgs_closure():
-#     lbfgs.zero_grad()
-#     physics_loss, initial_condition_loss, boundary_condition_loss = model.loss_function(ground_state, *lbfgs_points)
-#     total_loss = 10 * physics_loss + initial_condition_loss + boundary_condition_loss
-#     total_loss.backward()
-#     return total_loss
-
 # lbfgs_epochs = 2000
 # for k in range(lbfgs_epochs):
+#     lbfgs_points = model.generator(model.t_min, model.t_max, k % 64)
+
+#     def lbfgs_closure():
+#         lbfgs.zero_grad()
+#         physics_loss, initial_condition_loss, boundary_condition_loss = model.loss_function(ground_state, *lbfgs_points)
+#         total_loss = 10 * physics_loss + initial_condition_loss + boundary_condition_loss
+#         total_loss.backward()
+#         return total_loss
+    
 #     loss_val = lbfgs.step(lbfgs_closure)
+
 #     if k % 10 == 0:
 #         print(f"[LBFGS {k}/{lbfgs_epochs}]  ----------------------  total loss = {loss_val.item():.3e}")
 
-torch.save(model.state_dict(), "Schrodinger-PINN/src/results/ti/model_6.pth")
+torch.save(model.state_dict(), "Schrodinger-PINN/src/results/ti/model_8.pth")
 
-with open("Schrodinger-PINN/src/results/ti/history_6.json", "w") as f:
+with open("Schrodinger-PINN/src/results/ti/history_8.json", "w") as f:
     json.dump(history, f)
