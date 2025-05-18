@@ -82,14 +82,8 @@ class PINN(nn.Module):
         return psi_real, psi_img
 
     def generator(self, T_min, T_max, seed):
-        n_focus = 500
         rng = np.random.default_rng(seed)
-        t_collocation = rng.uniform(T_min, T_max, self.n_collocation - 2 * n_focus)
-        rng = np.random.default_rng(seed)
-        t1_focus = rng.normal(loc=t1, scale=0.5, size=n_focus)
-        rng = np.random.default_rng(seed)
-        t2_focus = rng.normal(loc=t2, scale=0.5, size=n_focus)
-        t_collocation = np.concatenate((t_collocation, t1_focus, t2_focus))
+        t_collocation = rng.uniform(T_min, T_max, self.n_collocation)
         x_qd_collocation = np.where(t_collocation < t1, x0, np.where(t_collocation < t1 + (x1 - x0) / vQD, x0 + vQD * (t_collocation - t1), x1))
         rng = np.random.default_rng(int(seed + 1e7))
         x_collocation = rng.normal(loc=x_qd_collocation, scale=25.0, size=self.n_collocation)
@@ -228,7 +222,7 @@ history = model.train_model(optimizer, scheduler, ground_state, 250000)
 #     if k % 10 == 0:
 #         print(f"[LBFGS {k}/{lbfgs_epochs}]  ----------------------  total loss = {loss_val.item():.3e}")
 
-torch.save(model.state_dict(), "Schrodinger-PINN/src/results/ti/model_8.pth")
+torch.save(model.state_dict(), "Schrodinger-PINN/src/results/norm-loss/model_1.pth")
 
-with open("Schrodinger-PINN/src/results/ti/history_8.json", "w") as f:
+with open("Schrodinger-PINN/src/results/norm-loss/history_1.json", "w") as f:
     json.dump(history, f)
