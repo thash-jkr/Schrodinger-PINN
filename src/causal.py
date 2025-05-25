@@ -81,12 +81,10 @@ class PINN(nn.Module):
         
         return psi_real, psi_img
 
-    def generator(self, T_min, T_max, seed):
-        rng = np.random.default_rng(seed)
-        t_collocation = rng.uniform(T_min, T_max, self.n_collocation)
+    def generator(self, T_min, T_max):
+        t_collocation = np.random.uniform(T_min, T_max, self.n_collocation)
         x_qd_collocation = np.where(t_collocation < t1, x0, np.where(t_collocation < t1 + (x1 - x0) / vQD, x0 + vQD * (t_collocation - t1), x1))
-        rng = np.random.default_rng(int(seed + 1e7))
-        x_collocation = rng.normal(loc=x_qd_collocation, scale=25.0, size=self.n_collocation)
+        x_collocation = np.random.normal(loc=x_qd_collocation, scale=25.0, size=self.n_collocation)
     
         x_c = 0
         x_initial = np.random.normal(loc=x_c, scale=25.0, size=self.n_initial)
@@ -132,6 +130,7 @@ class PINN(nn.Module):
         physics_loss = 0
         segments = 10
         width = 20 / segments
+        epsilon = 1
         
         for k in range(segments):
             t_start = self.t_min + k * width
@@ -141,9 +140,14 @@ class PINN(nn.Module):
             # if mask.sum() == 0:
             #     continue
             
+            if k == 0:
+                weight = 1.0
+            else:
+                weight = torch.exp(-epsilon * cumulative_loss)
+            
             loss = torch.mean(real[mask] ** 2 + img[mask] ** 2)
+            physics_loss += weight * loss
             cumulative_loss += loss
-            physics_loss += cumulative_loss
             
         physics_loss /= segments
         
@@ -171,7 +175,7 @@ class PINN(nn.Module):
         for epoch in range(1, epochs+1):
             optimizer.zero_grad()
             
-            physics_loss, initial_condition_loss, boundary_condition_loss = self.loss_function(initial_condition, *self.generator(self.t_min, self.t_max, epoch % 64))
+            physics_loss, initial_condition_loss, boundary_condition_loss = self.loss_function(initial_condition, *self.generator(self.t_min, self.t_max))
             total_loss = 16 * physics_loss + initial_condition_loss + boundary_condition_loss
             
             total_loss.backward()
@@ -215,9 +219,9 @@ scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=exp_decay)
 def ground_state(x, t):
     return (((m * omega) / (np.pi * hbar)) ** 0.25) * torch.exp(((-m * omega) / (2 * hbar)) * (x ** 2)), 0
 
-history = model.train_model(optimizer, scheduler, ground_state, 300000)
+history = model.train_model(optimizer, scheduler, ground_state, 150000)
 
-torch.save(model.state_dict(), "Schrodinger-PINN/src/results/causal/model_2.pth")
+torch.save(model.state_dict(), "Schrodinger-PINN/src/results/causal/model_9.pth")
 
-with open("Schrodinger-PINN/src/results/causal/history_2.json", "w") as f:
+with open("Schrodinger-PINN/src/results/causal/history_9.json", "w") as f:
     json.dump(history, f)

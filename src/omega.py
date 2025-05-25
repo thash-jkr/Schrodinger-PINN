@@ -128,7 +128,26 @@ class PINN(nn.Module):
         real = -hbar * dv_dt + ((hbar ** 2) / (2 * m)) * d2u_dx2 - 0.5 * m * (omega_collocation_torch ** 2) * ((x_collocation_torch - xqd_arr) ** 2) * u
         img = hbar * du_dt + ((hbar ** 2) / (2 * m)) * d2v_dx2 - 0.5 * m * (omega_collocation_torch ** 2) * ((x_collocation_torch - xqd_arr) ** 2) * v
         
-        physics_loss = torch.mean(real ** 2 + img ** 2)
+        # physics_loss = torch.mean(real ** 2 + img ** 2)
+        
+        cumulative_loss = 0
+        physics_loss = 0
+        segments = 10
+        width = 20 / segments
+        
+        for k in range(segments):
+            t_start = self.t_min + k * width
+            t_end = t_start + width
+            mask = (t_collocation_torch >= t_start) & (t_collocation_torch < t_end)
+            
+            # if mask.sum() == 0:
+            #     continue
+            
+            loss = torch.mean(real[mask] ** 2 + img[mask] ** 2)
+            cumulative_loss += loss
+            physics_loss += cumulative_loss
+            
+        physics_loss /= segments
         
         
         
@@ -170,7 +189,7 @@ class PINN(nn.Module):
                 }
             )
             
-            if epoch % 1000 == 0:
+            if epoch % 10 == 0:
                 print(f"Epoch {epoch}/{epochs}")
                 print(f"Total loss: {total_loss.item():.4e}")
                 print(f"Physics loss: {physics_loss.item():.4e}")
@@ -180,7 +199,7 @@ class PINN(nn.Module):
 
         return history
 
-layers = [3, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 2]
+layers = [3, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 2]
 
 # Model setup
 model = PINN(layers, 0, 20).to(device)
@@ -195,9 +214,9 @@ def exp_decay(step):
 
 scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=exp_decay)
 
-history = model.train_model(optimizer, scheduler, 20000)
+history = model.train_model(optimizer, scheduler, 300000)
 
-torch.save(model.state_dict(), "Schrodinger-PINN/src/results/omega/model_3.pth")
+torch.save(model.state_dict(), "Schrodinger-PINN/src/results/omega/model_4.pth")
 
-with open("Schrodinger-PINN/src/results/omega/history_3.json", "w") as f:
+with open("Schrodinger-PINN/src/results/omega/history_4.json", "w") as f:
     json.dump(history, f)

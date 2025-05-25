@@ -132,7 +132,26 @@ class PINN(nn.Module):
         real = -hbar * dv_dt + ((hbar ** 2) / (2 * m)) * d2u_dx2 - 0.5 * m * (omega ** 2) * ((x_collocation_torch - xqd_collocation) ** 2) * u
         img = hbar * du_dt + ((hbar ** 2) / (2 * m)) * d2v_dx2 - 0.5 * m * (omega ** 2) * ((x_collocation_torch - xqd_collocation) ** 2) * v
         
-        physics_loss = torch.mean(real ** 2 + img ** 2)
+        # physics_loss = torch.mean(real ** 2 + img ** 2)
+        
+        cumulative_loss = 0
+        physics_loss = 0
+        segments = 10
+        width = 20 / segments
+        
+        for k in range(segments):
+            t_start = self.t_min + k * width
+            t_end = t_start + width
+            mask = (t_collocation_torch >= t_start) & (t_collocation_torch < t_end)
+            
+            # if mask.sum() == 0:
+            #     continue
+            
+            loss = torch.mean(real[mask] ** 2 + img[mask] ** 2)
+            cumulative_loss += loss
+            physics_loss += cumulative_loss
+            
+        physics_loss /= segments
         
         
         
@@ -173,7 +192,7 @@ class PINN(nn.Module):
                 }
             )
             
-            if epoch % 1000 == 0:
+            if epoch % 10 == 0:
                 print(f"Epoch {epoch}/{epochs}")
                 print(f"Total loss: {total_loss.item():.4e}")
                 print(f"Physics loss: {physics_loss.item():.4e}")
@@ -203,7 +222,7 @@ def ground_state(x, t):
 
 history = model.train_model(optimizer, scheduler, ground_state, 300000)
 
-torch.save(model.state_dict(), "Schrodinger-PINN/src/results/hybrid/model_6.pth")
+torch.save(model.state_dict(), "Schrodinger-PINN/src/results/hybrid/model_7.pth")
 
-with open("Schrodinger-PINN/src/results/hybrid/history_6.json", "w") as f:
+with open("Schrodinger-PINN/src/results/hybrid/history_7.json", "w") as f:
     json.dump(history, f)
