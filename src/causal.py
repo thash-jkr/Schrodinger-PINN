@@ -104,7 +104,7 @@ class PINN(nn.Module):
     
         return x_collocation_torch, t_collocation_torch, x_initial_torch, t_initial_torch, x_boundary_torch, t_boundary_torch
 
-    def loss_function(self, initial_condition, x_collocation_torch, t_collocation_torch, x_initial_torch, t_initial_torch, x_boundary_torch, t_boundary_torch):
+    def loss_function(self, initial_condition, x_collocation_torch, t_collocation_torch, x_initial_torch, t_initial_torch, x_boundary_torch, t_boundary_torch, epsilon):
         #pde loss
         x_collocation_torch = x_collocation_torch.clone().requires_grad_(True)
         t_collocation_torch = t_collocation_torch.clone().requires_grad_(True)
@@ -128,9 +128,8 @@ class PINN(nn.Module):
         
         cumulative_loss = 0
         physics_loss = 0
-        segments = 10
+        segments = 20
         width = 20 / segments
-        epsilon = 1
         
         for k in range(segments):
             t_start = self.t_min + k * width
@@ -175,7 +174,18 @@ class PINN(nn.Module):
         for epoch in range(1, epochs+1):
             optimizer.zero_grad()
             
-            physics_loss, initial_condition_loss, boundary_condition_loss = self.loss_function(initial_condition, *self.generator(self.t_min, self.t_max))
+            # epsilon_start = 10
+            # epsilon_end = 100
+            # epsilon = epsilon_start + (epsilon_end - epsilon_start) * (epoch / epochs)
+            
+            if epoch < 150000:
+                epsilon = 10
+            elif epoch < 200000:
+                epsilon = 50
+            else:
+                epsilon = 100
+            
+            physics_loss, initial_condition_loss, boundary_condition_loss = self.loss_function(initial_condition, *self.generator(self.t_min, self.t_max), epsilon)
             total_loss = 16 * physics_loss + initial_condition_loss + boundary_condition_loss
             
             total_loss.backward()
@@ -201,7 +211,7 @@ class PINN(nn.Module):
 
         return history
 
-layers = [2, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 2]
+layers = [2, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 2]
 
 # Model setup
 model = PINN(layers, 0, 20).to(device)
@@ -219,9 +229,9 @@ scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=exp_decay)
 def ground_state(x, t):
     return (((m * omega) / (np.pi * hbar)) ** 0.25) * torch.exp(((-m * omega) / (2 * hbar)) * (x ** 2)), 0
 
-history = model.train_model(optimizer, scheduler, ground_state, 150000)
+history = model.train_model(optimizer, scheduler, ground_state, 300000)
 
-torch.save(model.state_dict(), "Schrodinger-PINN/src/results/causal/model_9.pth")
+torch.save(model.state_dict(), "Schrodinger-PINN/src/results/causal/model_15.pth")
 
-with open("Schrodinger-PINN/src/results/causal/history_9.json", "w") as f:
+with open("Schrodinger-PINN/src/results/causal/history_15.json", "w") as f:
     json.dump(history, f)
