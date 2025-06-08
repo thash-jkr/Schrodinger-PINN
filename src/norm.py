@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import json
 import torch.nn as nn
-from scipy.constants import pi, speed_of_light, elementary_charge, electron_mass, hbar
+from scipy.constants import speed_of_light, elementary_charge, electron_mass, hbar
 from scipy.integrate import simpson
 
 me_SI = electron_mass
@@ -60,7 +60,7 @@ class PINN(nn.Module):
         self.n_collocation = 5000
         self.n_initial = 500
         self.n_boundary = 500
-        self.n_norm = 10000
+        self.n_norm = 1000
 
         self.t_min = t_min
         self.t_max = t_max
@@ -108,8 +108,8 @@ class PINN(nn.Module):
         x_boundary_torch = torch.from_numpy(x_boundary).float().to(device)
         t_boundary_torch = torch.from_numpy(t_boundary).float().to(device)
         
-        x_norm_torch = torch.from_numpy(x_norm).float().to(device).repeat(20, 1).unsqueeze(1)
-        t_norm_torch = torch.arange(1, 21, device=device).float().repeat_interleave(self.n_norm).unsqueeze(1)
+        x_norm_torch = torch.from_numpy(x_norm).float().to(device).repeat(20)
+        t_norm_torch = torch.arange(1, 20.1, device=device).float().repeat_interleave(self.n_norm)
     
         return x_collocation_torch, t_collocation_torch, x_initial_torch, t_initial_torch, x_boundary_torch, t_boundary_torch, x_norm_torch, t_norm_torch
 
@@ -133,7 +133,26 @@ class PINN(nn.Module):
         real = -hbar * dv_dt + ((hbar ** 2) / (2 * m)) * d2u_dx2 - 0.5 * m * (omega ** 2) * ((x_collocation_torch - xqd_arr) ** 2) * u
         img = hbar * du_dt + ((hbar ** 2) / (2 * m)) * d2v_dx2 - 0.5 * m * (omega ** 2) * ((x_collocation_torch - xqd_arr) ** 2) * v
         
-        physics_loss = torch.mean(real ** 2 + img ** 2)
+        # physics_loss = torch.mean(real ** 2 + img ** 2)
+        
+        cumulative_loss = 0
+        physics_loss = 0
+        segments = 20
+        width = 20 / segments
+        
+        for k in range(segments):
+            t_start = self.t_min + k * width
+            t_end = t_start + width
+            mask = (t_collocation_torch >= t_start) & (t_collocation_torch < t_end)
+            
+            # if mask.sum() == 0:
+            #     continue
+            
+            loss = torch.mean(real[mask] ** 2 + img[mask] ** 2)
+            cumulative_loss += loss
+            physics_loss += cumulative_loss
+            
+        physics_loss /= segments
         
         
         
@@ -173,8 +192,8 @@ class PINN(nn.Module):
         for epoch in range(1, epochs+1):
             optimizer.zero_grad()
             
-            if epoch < 100000: 
-                norm_ready = True
+            if epoch < 250000: 
+                norm_ready = False
             else:
                 norm_ready = True
             
@@ -206,7 +225,7 @@ class PINN(nn.Module):
 
         return history
 
-layers = [2, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 2]
+layers = [2, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 2]
 
 # Model setup
 model = PINN(layers, 0, 20).to(device)
@@ -224,9 +243,9 @@ scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=exp_decay)
 def ground_state(x, t):
     return (((m * omega) / (np.pi * hbar)) ** 0.25) * torch.exp(((-m * omega) / (2 * hbar)) * (x ** 2)), 0
 
-history = model.train_model(optimizer, scheduler, ground_state, 150000)
+history = model.train_model(optimizer, scheduler, ground_state, 350000)
 
-torch.save(model.state_dict(), "Schrodinger-PINN/src/results/norm-loss/model_6.pth")
+torch.save(model.state_dict(), "Schrodinger-PINN/src/results/norm/model_13.pth")
 
-with open("Schrodinger-PINN/src/results/norm-loss/history_6.json", "w") as f:
+with open("Schrodinger-PINN/src/results/norm/history_13.json", "w") as f:
     json.dump(history, f)

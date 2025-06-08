@@ -31,7 +31,7 @@ t2 = t1 + (x1 - x0) / vQD
 x_min = -75
 x_max = 150
 t_min = 0
-t_max = 20
+t_max = 60
 
 # device
 if torch.backends.mps.is_available():
@@ -128,8 +128,8 @@ class PINN(nn.Module):
         
         cumulative_loss = 0
         physics_loss = 0
-        segments = 20
-        width = 20 / segments
+        segments = 60
+        width = 60 / segments
         
         for k in range(segments):
             t_start = self.t_min + k * width
@@ -139,14 +139,9 @@ class PINN(nn.Module):
             # if mask.sum() == 0:
             #     continue
             
-            if k == 0:
-                weight = 1.0
-            else:
-                weight = torch.exp(-epsilon * cumulative_loss)
-            
             loss = torch.mean(real[mask] ** 2 + img[mask] ** 2)
-            physics_loss += weight * loss
             cumulative_loss += loss
+            physics_loss += cumulative_loss
             
         physics_loss /= segments
         
@@ -178,14 +173,14 @@ class PINN(nn.Module):
             # epsilon_end = 100
             # epsilon = epsilon_start + (epsilon_end - epsilon_start) * (epoch / epochs)
             
-            if epoch < 150000:
-                epsilon = 10
-            elif epoch < 200000:
-                epsilon = 50
-            else:
-                epsilon = 100
+            # if epoch < 150000:
+            #     epsilon = 10
+            # elif epoch < 200000:
+            #     epsilon = 50
+            # else:
+            #     epsilon = 100
             
-            physics_loss, initial_condition_loss, boundary_condition_loss = self.loss_function(initial_condition, *self.generator(self.t_min, self.t_max), epsilon)
+            physics_loss, initial_condition_loss, boundary_condition_loss = self.loss_function(initial_condition, *self.generator(self.t_min, self.t_max), epsilon=0)
             total_loss = 16 * physics_loss + initial_condition_loss + boundary_condition_loss
             
             total_loss.backward()
@@ -214,7 +209,7 @@ class PINN(nn.Module):
 layers = [2, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 2]
 
 # Model setup
-model = PINN(layers, 0, 20).to(device)
+model = PINN(layers, 0, 60).to(device)
 
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001, betas=(0.9, 0.9))
 
@@ -229,9 +224,9 @@ scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=exp_decay)
 def ground_state(x, t):
     return (((m * omega) / (np.pi * hbar)) ** 0.25) * torch.exp(((-m * omega) / (2 * hbar)) * (x ** 2)), 0
 
-history = model.train_model(optimizer, scheduler, ground_state, 300000)
+history = model.train_model(optimizer, scheduler, ground_state, 350000)
 
-torch.save(model.state_dict(), "Schrodinger-PINN/src/results/causal/model_15.pth")
+torch.save(model.state_dict(), "Schrodinger-PINN/src/results/causal/model_16.pth")
 
-with open("Schrodinger-PINN/src/results/causal/history_15.json", "w") as f:
+with open("Schrodinger-PINN/src/results/causal/history_16.json", "w") as f:
     json.dump(history, f)
