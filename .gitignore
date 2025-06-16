@@ -4,3 +4,4 @@ temp.*
 *.mp4
 misc/
 .DS*
+src/results/

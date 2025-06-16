@@ -108,8 +108,8 @@ class PINN(nn.Module):
         x_boundary_torch = torch.from_numpy(x_boundary).float().to(device)
         t_boundary_torch = torch.from_numpy(t_boundary).float().to(device)
         
-        x_norm_torch = torch.from_numpy(x_norm).float().to(device).repeat(20)
-        t_norm_torch = torch.arange(1, 20.1, device=device).float().repeat_interleave(self.n_norm)
+        x_norm_torch = torch.from_numpy(x_norm).float().to(device).repeat(100)
+        t_norm_torch = torch.arange(.2, 20.2, .2, device=device).float().repeat_interleave(self.n_norm)
     
         return x_collocation_torch, t_collocation_torch, x_initial_torch, t_initial_torch, x_boundary_torch, t_boundary_torch, x_norm_torch, t_norm_torch
 
@@ -133,26 +133,7 @@ class PINN(nn.Module):
         real = -hbar * dv_dt + ((hbar ** 2) / (2 * m)) * d2u_dx2 - 0.5 * m * (omega ** 2) * ((x_collocation_torch - xqd_arr) ** 2) * u
         img = hbar * du_dt + ((hbar ** 2) / (2 * m)) * d2v_dx2 - 0.5 * m * (omega ** 2) * ((x_collocation_torch - xqd_arr) ** 2) * v
         
-        # physics_loss = torch.mean(real ** 2 + img ** 2)
-        
-        cumulative_loss = 0
-        physics_loss = 0
-        segments = 20
-        width = 20 / segments
-        
-        for k in range(segments):
-            t_start = self.t_min + k * width
-            t_end = t_start + width
-            mask = (t_collocation_torch >= t_start) & (t_collocation_torch < t_end)
-            
-            # if mask.sum() == 0:
-            #     continue
-            
-            loss = torch.mean(real[mask] ** 2 + img[mask] ** 2)
-            cumulative_loss += loss
-            physics_loss += cumulative_loss
-            
-        physics_loss /= segments
+        physics_loss = torch.mean(real ** 2 + img ** 2)
         
         
         
@@ -177,12 +158,13 @@ class PINN(nn.Module):
         if norm_ready:
             u_n, v_n = self((x_norm_torch, t_norm_torch))
             psi_sq = u_n ** 2 + v_n ** 2
-            psi_sq = psi_sq.view(20, self.n_norm)
+            psi_sq = psi_sq.view(100, self.n_norm)
             
             integrals = psi_sq.mean(dim=1) * (x_max - x_min)
-            normalization_loss = ((integrals - 1.0) ** 2).mean()
+            normalization_losses = (integrals - 1.0) ** 2
+            normalization_loss = normalization_losses.unbind()
         else:
-            normalization_loss = torch.tensor(0)
+            normalization_loss = [torch.tensor(0)]
         
         return physics_loss, initial_condition_loss, boundary_condition_loss, normalization_loss
 
@@ -198,6 +180,7 @@ class PINN(nn.Module):
                 norm_ready = True
             
             physics_loss, initial_condition_loss, boundary_condition_loss, normalization_loss = self.loss_function(initial_condition, *self.generator(self.t_min, self.t_max), norm_ready)
+            normalization_loss = sum(normalization_loss)
             total_loss = 16 * physics_loss + initial_condition_loss + boundary_condition_loss + normalization_loss
             
             total_loss.backward()
@@ -245,7 +228,7 @@ def ground_state(x, t):
 
 history = model.train_model(optimizer, scheduler, ground_state, 350000)
 
-torch.save(model.state_dict(), "Schrodinger-PINN/src/results/norm/model_13.pth")
+torch.save(model.state_dict(), "Schrodinger-PINN/src/results/norm/model_21.pth")
 
-with open("Schrodinger-PINN/src/results/norm/history_13.json", "w") as f:
+with open("Schrodinger-PINN/src/results/norm/history_21.json", "w") as f:
     json.dump(history, f)
