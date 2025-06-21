@@ -2,9 +2,8 @@ import numpy as np
 import torch
 import json
 import torch.nn as nn
-from scipy.constants import pi, speed_of_light, elementary_charge, electron_mass, hbar
+from scipy.constants import speed_of_light, elementary_charge, electron_mass, hbar
 from scipy.integrate import simpson
-from scipy import special
 
 me_SI = electron_mass
 hbar_SI = hbar
@@ -162,7 +161,7 @@ class PINN(nn.Module):
             psi_sq = psi_sq.view(20, self.n_norm)
             
             integrals = psi_sq.mean(dim=1) * (x_max - x_min)
-            normalization_loss = ((integrals - 1.0) ** 2).mean()
+            normalization_loss = torch.mean((integrals - 1.0) ** 2)
         else:
             normalization_loss = torch.tensor(0)
         
@@ -174,10 +173,10 @@ class PINN(nn.Module):
         for epoch in range(1, epochs+1):
             optimizer.zero_grad()
             
-            if epoch < 100000: 
+            if epoch < 125000: 
                 norm_ready = False
             else:
-                norm_ready = False
+                norm_ready = True
             
             physics_loss, initial_condition_loss, boundary_condition_loss, normalization_loss = self.loss_function(initial_condition, *self.generator(self.t_min, self.t_max), norm_ready)
             total_loss = 16 * physics_loss + initial_condition_loss + boundary_condition_loss + normalization_loss
@@ -207,7 +206,7 @@ class PINN(nn.Module):
 
         return history
 
-layers = [2, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 2]
+layers = [2, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 2]
 
 # Model setup
 model = PINN(layers, 0, 20).to(device)
@@ -225,17 +224,9 @@ scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=exp_decay)
 def ground_state(x, t):
     return (((m * omega) / (np.pi * hbar)) ** 0.25) * torch.exp(((-m * omega) / (2 * hbar)) * (x ** 2)), 0
 
-def first_state(x, t):
-    A = 1 / torch.sqrt(torch.tensor(2))
-    B = ((m * omega) / (torch.pi * hbar)) ** 0.25
-    C = torch.exp((-m * omega * (x ** 2)) / (2 * hbar))
-    D = 2 * torch.sqrt(torch.tensor((m * omega) / hbar)) * x
-    
-    return A * B * C * D, 0
+history = model.train_model(optimizer, scheduler, ground_state, 150000)
 
-history = model.train_model(optimizer, scheduler, first_state, 300000)
+torch.save(model.state_dict(), "Schrodinger-PINN/src/results/norm/model_30.pth")
 
-torch.save(model.state_dict(), "Schrodinger-PINN/src/results/norm/model_22.pth")
-
-with open("Schrodinger-PINN/src/results/norm/history_22.json", "w") as f:
+with open("Schrodinger-PINN/src/results/norm/history_30.json", "w") as f:
     json.dump(history, f)
