@@ -19,7 +19,7 @@ me = me_SI * c_SI**2 / meV / c**2
 
 hbar = hbar_meV_ps
 m = me
-omega = 2 / hbar
+omega = 1 / hbar
 vQD = 15
 
 x0 = 0
@@ -59,7 +59,7 @@ class PINN(nn.Module):
         self.n_collocation = 5000
         self.n_initial = 500
         self.n_boundary = 500
-        self.n_norm = 10000
+        self.n_norm = 1000
 
         self.t_min = t_min
         self.t_max = t_max
@@ -195,7 +195,7 @@ class PINN(nn.Module):
 
         return history
 
-layers = [2, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 2]
+layers = [2, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 2]
 
 # Model setup
 model = PINN(layers, 0, 20).to(device)
@@ -213,9 +213,9 @@ scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=exp_decay)
 def ground_state(x, t):
     return (((m * omega) / (np.pi * hbar)) ** 0.25) * torch.exp(((-m * omega) / (2 * hbar)) * (x ** 2)), 0
 
-history = model.train_model(optimizer, scheduler, ground_state, 250000)
+history = model.train_model(optimizer, scheduler, ground_state, 150000)
 
-torch.save(model.state_dict(), "Schrodinger-PINN/src/results/norm/model_33.pth")
+torch.save(model.state_dict(), "Schrodinger-PINN/src/results/norm/model_45.pth")
 
-with open("Schrodinger-PINN/src/results/norm/history_33.json", "w") as f:
+with open("Schrodinger-PINN/src/results/norm/history_45.json", "w") as f:
     json.dump(history, f)

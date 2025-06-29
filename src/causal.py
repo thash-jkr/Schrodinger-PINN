@@ -31,7 +31,7 @@ t2 = t1 + (x1 - x0) / vQD
 x_min = -75
 x_max = 150
 t_min = 0
-t_max = 60
+t_max = 20
 
 # device
 if torch.backends.mps.is_available():
@@ -84,7 +84,7 @@ class PINN(nn.Module):
     def generator(self, T_min, T_max):
         t_collocation = np.random.uniform(T_min, T_max, self.n_collocation)
         x_qd_collocation = np.where(t_collocation < t1, x0, np.where(t_collocation < t1 + (x1 - x0) / vQD, x0 + vQD * (t_collocation - t1), x1))
-        x_collocation = np.random.normal(loc=x_qd_collocation, scale=25.0, size=self.n_collocation)
+        x_collocation = np.random.normal(loc=x_qd_collocation, scale=25.0, size=self.n_collocation) 
     
         x_c = 0
         x_initial = np.random.normal(loc=x_c, scale=25.0, size=self.n_initial)
@@ -104,7 +104,7 @@ class PINN(nn.Module):
     
         return x_collocation_torch, t_collocation_torch, x_initial_torch, t_initial_torch, x_boundary_torch, t_boundary_torch
 
-    def loss_function(self, initial_condition, x_collocation_torch, t_collocation_torch, x_initial_torch, t_initial_torch, x_boundary_torch, t_boundary_torch, epsilon):
+    def loss_function(self, initial_condition, x_collocation_torch, t_collocation_torch, x_initial_torch, t_initial_torch, x_boundary_torch, t_boundary_torch):
         #pde loss
         x_collocation_torch = x_collocation_torch.clone().requires_grad_(True)
         t_collocation_torch = t_collocation_torch.clone().requires_grad_(True)
@@ -128,16 +128,16 @@ class PINN(nn.Module):
         
         cumulative_loss = 0
         physics_loss = 0
-        segments = 60
-        width = 60 / segments
+        segments = 20
+        width = 20 / segments
         
         for k in range(segments):
             t_start = self.t_min + k * width
             t_end = t_start + width
             mask = (t_collocation_torch >= t_start) & (t_collocation_torch < t_end)
             
-            # if mask.sum() == 0:
-            #     continue
+            if mask.sum() == 0:
+                continue
             
             loss = torch.mean(real[mask] ** 2 + img[mask] ** 2)
             cumulative_loss += loss
@@ -169,18 +169,7 @@ class PINN(nn.Module):
         for epoch in range(1, epochs+1):
             optimizer.zero_grad()
             
-            # epsilon_start = 10
-            # epsilon_end = 100
-            # epsilon = epsilon_start + (epsilon_end - epsilon_start) * (epoch / epochs)
-            
-            # if epoch < 150000:
-            #     epsilon = 10
-            # elif epoch < 200000:
-            #     epsilon = 50
-            # else:
-            #     epsilon = 100
-            
-            physics_loss, initial_condition_loss, boundary_condition_loss = self.loss_function(initial_condition, *self.generator(self.t_min, self.t_max), epsilon=0)
+            physics_loss, initial_condition_loss, boundary_condition_loss = self.loss_function(initial_condition, *self.generator(self.t_min, self.t_max))
             total_loss = 16 * physics_loss + initial_condition_loss + boundary_condition_loss
             
             total_loss.backward()
@@ -209,7 +198,7 @@ class PINN(nn.Module):
 layers = [2, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 2]
 
 # Model setup
-model = PINN(layers, 0, 60).to(device)
+model = PINN(layers, 0, 20).to(device)
 
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001, betas=(0.9, 0.9))
 
@@ -224,7 +213,7 @@ scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=exp_decay)
 def ground_state(x, t):
     return (((m * omega) / (np.pi * hbar)) ** 0.25) * torch.exp(((-m * omega) / (2 * hbar)) * (x ** 2)), 0
 
-history = model.train_model(optimizer, scheduler, ground_state, 350000)
+history = model.train_model(optimizer, scheduler, ground_state, 250000)
 
 torch.save(model.state_dict(), "Schrodinger-PINN/src/results/causal/model_16.pth")
 

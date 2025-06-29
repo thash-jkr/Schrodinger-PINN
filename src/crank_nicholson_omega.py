@@ -17,11 +17,11 @@ m = me_SI * c_SI**2 / meV / c**2
 omega = 2 / hbar
 vQD = 15
 
-x_min, x_max = -75, 150
-t_min, t_max = 0, 20
+x_min, x_max = -50, 50
+t_min, t_max = 0, 10
 Nx, Nt = 5000, 5000
 t0, t1 = 2, 7
-omega0, omega1 = 0.5 / hbar, 2 / hbar
+omega0, omega1 = .5 / hbar, 2 / hbar
 
 x_values = np.linspace(x_min, x_max, Nx)
 t_values = np.linspace(t_min, t_max, Nt)
@@ -29,8 +29,8 @@ t_values = np.linspace(t_min, t_max, Nt)
 dx = x_values[1] - x_values[0]
 dt = t_values[1] - t_values[0]
 
-power_factor = (2 - 0.5) / (t1 - t0)
-H_kinetic = (power_factor ** 2) / (2 * m)
+laplacian = sp.diags([1, -2, 1], offsets=[-1, 0, 1], shape=(Nx, Nx), format='csc') / dx**2
+H_kinetic = - (hbar ** 2 / (2 * m)) * laplacian
 
 def ground_state(x):
     A = (m * omega0 / (np.pi * hbar)) ** 0.25
@@ -77,8 +77,7 @@ for t_i in range(1, Nt):
         print(f"Norm at previous step = {norm}")
 
     V = 0.5 * m * omega_arr[t_i] ** 2 * x_values ** 2
-    H_diag = H_kinetic + V
-    H = sp.diags(H_diag, format="csc")
+    H = H_kinetic + sp.diags(V, format='csc')
 
     A = I + 1j * dt / (2 * hbar) * H
     B = I - 1j * dt / (2 * hbar) * H

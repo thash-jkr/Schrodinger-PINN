@@ -44,7 +44,7 @@ def first_state(x):
     
     return A * B * C * D
 
-psi = first_state(x_values)
+psi = ground_state(x_values)
 norm = np.sqrt(np.sum(np.abs(psi)**2) * dx)
 psi /= norm
 
@@ -92,7 +92,7 @@ for t_i in range(1, Nt):
     psi_real_analytical[:, t_i] = np.real(psi)
     psi_img_analytical[:, t_i] = np.imag(psi)
 
-np.savez("Schrodinger-PINN/src/results/analytical/crank_first.npz",
+np.savez("Schrodinger-PINN/src/results/analytical/crank.npz",
          real=psi_real_analytical,
          img=psi_img_analytical,
          x_values=x_values,

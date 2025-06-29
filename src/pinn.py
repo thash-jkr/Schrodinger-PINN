@@ -3,7 +3,6 @@ import torch
 import json
 import torch.nn as nn
 from scipy.constants import speed_of_light, elementary_charge, electron_mass, hbar
-from scipy.integrate import simpson
 
 me_SI = electron_mass
 hbar_SI = hbar
@@ -95,8 +94,6 @@ class PINN(nn.Module):
         x_boundary = np.concatenate([np.full(self.n_boundary // 2, x_min), np.full(self.n_boundary // 2, x_max)])
         t_boundary = np.random.uniform(T_min, T_max, self.n_boundary)
         
-        # x_norm = np.random.uniform(x_min, x_max, self.n_norm)
-        # x_norm = np.random.normal(loc=x1, scale=25.0, size=self.n_norm)
         x_norm = np.linspace(x_min, x_max, self.n_norm)
         
         x_collocation_torch = torch.from_numpy(x_collocation).float().to(device)
@@ -108,12 +105,12 @@ class PINN(nn.Module):
         x_boundary_torch = torch.from_numpy(x_boundary).float().to(device)
         t_boundary_torch = torch.from_numpy(t_boundary).float().to(device)
         
-        x_norm_torch = torch.from_numpy(x_norm).float().to(device).repeat(20)
-        t_norm_torch = torch.arange(1, 21, device=device).float().repeat_interleave(self.n_norm)
+        x_norm_torch = torch.from_numpy(x_norm).float().to(device).repeat(10)
+        t_norm_torch = torch.arange(2, 21, 2, device=device).float().repeat_interleave(self.n_norm)
     
         return x_collocation_torch, t_collocation_torch, x_initial_torch, t_initial_torch, x_boundary_torch, t_boundary_torch, x_norm_torch, t_norm_torch
 
-    def loss_function(self, initial_condition, x_collocation_torch, t_collocation_torch, x_initial_torch, t_initial_torch, x_boundary_torch, t_boundary_torch, x_norm_torch, t_norm_torch, norm_ready):
+    def loss_function(self, initial_condition, x_collocation_torch, t_collocation_torch, x_initial_torch, t_initial_torch, x_boundary_torch, t_boundary_torch, x_norm_torch, t_norm_torch):
         #pde loss
         x_collocation_torch = x_collocation_torch.clone().requires_grad_(True)
         t_collocation_torch = t_collocation_torch.clone().requires_grad_(True)
@@ -154,28 +151,15 @@ class PINN(nn.Module):
         
         
         
-        # #normalization loss
-        # if norm_ready:
-        #     u_n, v_n = self((x_norm_torch, t_norm_torch))
-        #     psi_sq = u_n ** 2 + v_n ** 2
-        #     psi_sq = psi_sq.view(20, self.n_norm)
-            
-        #     integrals = psi_sq.mean(dim=1) * (x_max - x_min)
-        #     normalization_loss = torch.mean((integrals - 1.0) ** 2)
-        # else:
-        #     normalization_loss = torch.tensor(0)
-        
-        return physics_loss, initial_condition_loss, boundary_condition_loss
-    
-    def norm_loss(self, x_norm_torch, t_norm_torch):
+        #normalization loss
         u_n, v_n = self((x_norm_torch, t_norm_torch))
         psi_sq = u_n ** 2 + v_n ** 2
-        psi_sq = psi_sq.view(20, self.n_norm)
+        psi_sq = psi_sq.view(10, self.n_norm)
         
         integrals = psi_sq.mean(dim=1) * (x_max - x_min)
         normalization_loss = torch.mean((integrals - 1.0) ** 2)
         
-        return normalization_loss
+        return physics_loss, initial_condition_loss, boundary_condition_loss, normalization_loss
 
     def train_model(self, optimizer, scheduler, initial_condition, epochs):
         history = []
@@ -183,13 +167,8 @@ class PINN(nn.Module):
         for epoch in range(1, epochs+1):
             optimizer.zero_grad()
             
-            if epoch < 125000: 
-                norm_ready = True
-            else:
-                norm_ready = True
-            
-            physics_loss, initial_condition_loss, boundary_condition_loss = self.loss_function(initial_condition, *self.generator(self.t_min, self.t_max), norm_ready)
-            total_loss = 16 * physics_loss + initial_condition_loss + boundary_condition_loss
+            physics_loss, initial_condition_loss, boundary_condition_loss, normalization_loss = self.loss_function(initial_condition, *self.generator(self.t_min, self.t_max))
+            total_loss = 16 * physics_loss + initial_condition_loss + boundary_condition_loss + normalization_loss
             
             total_loss.backward()
             optimizer.step()
@@ -201,6 +180,7 @@ class PINN(nn.Module):
                     "physics_loss": physics_loss.item(),
                     "initial_condition_loss": initial_condition_loss.item(),
                     "boundary_condition_loss": boundary_condition_loss.item(),
+                    "normalization_loss": normalization_loss.item(),
                 }
             )
             
@@ -210,36 +190,10 @@ class PINN(nn.Module):
                 print(f"Physics loss: {physics_loss.item():.4e}")
                 print(f"Initial condition loss: {initial_condition_loss.item():.4e}")
                 print(f"Boundary condition loss: {boundary_condition_loss.item():.4e}")
+                print(f"Normalization loss: {normalization_loss.item():.4e}")
                 print("-" * 50)
 
         return history
-    
-    def norm_train(self, optimizer, scheduler, epochs):
-        x_norm = np.linspace(x_min, x_max, self.n_norm)
-        x_norm_torch = torch.from_numpy(x_norm).float().to(device).repeat(20)
-        t_norm_torch = torch.arange(1, 21, device=device).float().repeat_interleave(self.n_norm)
-        
-        norm_history = []
-        
-        for epoch in range(1, epochs+1):
-            optimizer.zero_grad()
-            
-            normalization_loss = self.norm_loss(x_norm_torch, t_norm_torch)
-            
-            normalization_loss.backward()
-            optimizer.step()
-            scheduler.step()
-            
-            norm_history.append({
-                "normalization_loss": normalization_loss.item()
-            })
-            
-            if epoch % 10 == 0:
-                print(f"Epoch {epoch}/{epochs}")
-                print(f"Normalization Loss: {normalization_loss.item():.4e}")
-                print("-" * 50)
-                
-        return norm_history
 
 layers = [2, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 2]
 
@@ -260,12 +214,8 @@ def ground_state(x, t):
     return (((m * omega) / (np.pi * hbar)) ** 0.25) * torch.exp(((-m * omega) / (2 * hbar)) * (x ** 2)), 0
 
 history = model.train_model(optimizer, scheduler, ground_state, 150000)
-norm_history = model.norm_train(optimizer, scheduler, 10000)
 
-torch.save(model.state_dict(), "Schrodinger-PINN/src/results/norm/model_32.pth")
+torch.save(model.state_dict(), "Schrodinger-PINN/src/results/norm/model_46.pth")
 
-with open("Schrodinger-PINN/src/results/norm/history_32.json", "w") as f:
+with open("Schrodinger-PINN/src/results/norm/history_46.json", "w") as f:
     json.dump(history, f)
-    
-with open("Schrodinger-PINN/src/results/norm/history_32_norm.json", "w") as f:
-    json.dump(norm_history, f)
