@@ -13,13 +13,12 @@ ps = 1e-12
 
 c = c_SI * ps / nm
 hbar = hbar_SI / (meV * ps)
-m = me_SI * c_SI**2 / meV / c**2
-omega = 2 / hbar
+m = me_SI * c_SI ** 2 / meV / c**2
 vQD = 15
 
 x_min, x_max = -50, 50
 t_min, t_max = 0, 10
-Nx, Nt = 5000, 5000
+Nx, Nt = 1000, 1000
 t0, t1 = 2, 7
 omega0, omega1 = .5 / hbar, 2 / hbar
 
@@ -29,7 +28,7 @@ t_values = np.linspace(t_min, t_max, Nt)
 dx = x_values[1] - x_values[0]
 dt = t_values[1] - t_values[0]
 
-laplacian = sp.diags([1, -2, 1], offsets=[-1, 0, 1], shape=(Nx, Nx), format='csc') / dx**2
+laplacian = sp.diags([1, -2, 1], offsets=[-1, 0, 1], shape=(Nx, Nx), format='csc') / dx ** 2
 H_kinetic = - (hbar ** 2 / (2 * m)) * laplacian
 
 def ground_state(x):

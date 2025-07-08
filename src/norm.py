@@ -19,7 +19,7 @@ me = me_SI * c_SI**2 / meV / c**2
 
 hbar = hbar_meV_ps
 m = me
-omega = 1 / hbar
+omega = 2 / hbar
 vQD = 15
 
 x0 = 0
@@ -215,7 +215,7 @@ def ground_state(x, t):
 
 history = model.train_model(optimizer, scheduler, ground_state, 150000)
 
-torch.save(model.state_dict(), "Schrodinger-PINN/src/results/norm/model_45.pth")
+torch.save(model.state_dict(), "Schrodinger-PINN/src/results/norm/model_59.pth")
 
-with open("Schrodinger-PINN/src/results/norm/history_45.json", "w") as f:
+with open("Schrodinger-PINN/src/results/norm/history_59.json", "w") as f:
     json.dump(history, f)

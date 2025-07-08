@@ -31,7 +31,7 @@ t2 = t1 + (x1 - x0) / vQD
 x_min = -75
 x_max = 150
 t_min = 0
-t_max = 20
+t_max = 12.5
 
 # device
 if torch.backends.mps.is_available():
@@ -195,10 +195,10 @@ class PINN(nn.Module):
 
         return history
 
-layers = [2, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 2]
+layers = [2, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 2]
 
 # Model setup
-model = PINN(layers, 0, 20).to(device)
+model = PINN(layers, 0, 12.5).to(device)
 
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001, betas=(0.9, 0.9))
 
@@ -213,9 +213,9 @@ scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=exp_decay)
 def ground_state(x, t):
     return (((m * omega) / (np.pi * hbar)) ** 0.25) * torch.exp(((-m * omega) / (2 * hbar)) * (x ** 2)), 0
 
-history = model.train_model(optimizer, scheduler, ground_state, 250000)
+history = model.train_model(optimizer, scheduler, ground_state, 150000)
 
-torch.save(model.state_dict(), "Schrodinger-PINN/src/results/causal/model_16.pth")
+torch.save(model.state_dict(), "Schrodinger-PINN/src/results/norm/model_56.pth")
 
-with open("Schrodinger-PINN/src/results/causal/history_16.json", "w") as f:
+with open("Schrodinger-PINN/src/results/norm/history_56.json", "w") as f:
     json.dump(history, f)

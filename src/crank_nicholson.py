@@ -1,8 +1,7 @@
 import numpy as np
 import scipy.sparse as sp
 import scipy.sparse.linalg as spla
-import matplotlib.pyplot as plt
-from scipy.constants import pi, speed_of_light, elementary_charge, electron_mass, hbar as hbar_SI
+from scipy.constants import speed_of_light, elementary_charge, electron_mass, hbar as hbar_SI
 
 me_SI = electron_mass
 e_SI = elementary_charge
@@ -14,12 +13,12 @@ ps = 1e-12
 
 c = c_SI * ps / nm
 hbar = hbar_SI / (meV * ps)
-m = me_SI * c_SI**2 / meV / c**2
+m = me_SI * c_SI ** 2 / meV / c ** 2
 omega = 2 / hbar
 vQD = 15
 
 x_min, x_max = -75, 150
-t_min, t_max = 0, 20
+t_min, t_max = 0, 12.5
 Nx, Nt = 5000, 5000
 
 x_values = np.linspace(x_min, x_max, Nx)
@@ -92,7 +91,7 @@ for t_i in range(1, Nt):
     psi_real_analytical[:, t_i] = np.real(psi)
     psi_img_analytical[:, t_i] = np.imag(psi)
 
-np.savez("Schrodinger-PINN/src/results/analytical/crank.npz",
+np.savez("Schrodinger-PINN/src/results/analytical/crank_t12.npz",
          real=psi_real_analytical,
          img=psi_img_analytical,
          x_values=x_values,

@@ -19,7 +19,7 @@ me = me_SI * c_SI**2 / meV / c**2
 
 hbar = hbar_meV_ps
 m = me
-omega = 2 / hbar
+omega = 1.4 / hbar
 vQD = 15
 
 x0 = 0
@@ -105,8 +105,8 @@ class PINN(nn.Module):
         x_boundary_torch = torch.from_numpy(x_boundary).float().to(device)
         t_boundary_torch = torch.from_numpy(t_boundary).float().to(device)
         
-        x_norm_torch = torch.from_numpy(x_norm).float().to(device).repeat(20)
-        t_norm_torch = torch.arange(1, 21, device=device).float().repeat_interleave(self.n_norm)
+        x_norm_torch = torch.from_numpy(x_norm).float().to(device).repeat(3)
+        t_norm_torch = torch.arange(6, 21, 6, device=device).float().repeat_interleave(self.n_norm)
     
         return x_collocation_torch, t_collocation_torch, x_initial_torch, t_initial_torch, x_boundary_torch, t_boundary_torch, x_norm_torch, t_norm_torch
 
@@ -154,7 +154,7 @@ class PINN(nn.Module):
         #normalization loss
         u_n, v_n = self((x_norm_torch, t_norm_torch))
         psi_sq = u_n ** 2 + v_n ** 2
-        psi_sq = psi_sq.view(20, self.n_norm)
+        psi_sq = psi_sq.view(3, self.n_norm)
         
         integrals = psi_sq.mean(dim=1) * (x_max - x_min)
         normalization_loss = torch.mean((integrals - 1.0) ** 2)
@@ -168,7 +168,7 @@ class PINN(nn.Module):
             optimizer.zero_grad()
             
             physics_loss, initial_condition_loss, boundary_condition_loss, normalization_loss = self.loss_function(initial_condition, *self.generator(self.t_min, self.t_max))
-            total_loss = 16 * physics_loss + initial_condition_loss + boundary_condition_loss + 0.01 * normalization_loss
+            total_loss = 16 * physics_loss + initial_condition_loss + boundary_condition_loss + normalization_loss
             
             total_loss.backward()
             optimizer.step()
@@ -215,7 +215,7 @@ def ground_state(x, t):
 
 history = model.train_model(optimizer, scheduler, ground_state, 150000)
 
-torch.save(model.state_dict(), "Schrodinger-PINN/src/results/norm/model_48.pth")
+torch.save(model.state_dict(), "Schrodinger-PINN/src/results/norm/model_54.pth")
 
-with open("Schrodinger-PINN/src/results/norm/history_48.json", "w") as f:
+with open("Schrodinger-PINN/src/results/norm/history_54.json", "w") as f:
     json.dump(history, f)
