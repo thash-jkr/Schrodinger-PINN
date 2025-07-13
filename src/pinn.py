@@ -20,7 +20,7 @@ me = me_SI * c_SI**2 / meV / c**2
 hbar = hbar_meV_ps
 m = me
 omega = 2 / hbar
-vQD = 15
+vQD = 20
 
 x0 = 0
 x1 = 75
@@ -30,8 +30,8 @@ t2 = t1 + (x1 - x0) / vQD
 
 x_min = -75
 x_max = 150
-t_min = 0
-t_max = 12.5
+t_min = 2
+t_max = t2
 
 # device
 if torch.backends.mps.is_available():
@@ -176,10 +176,10 @@ class PINN(nn.Module):
 
         return history
 
-layers = [2, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 2]
+layers = [2, 512, 512, 512, 512, 512, 512, 2]
 
 # Model setup
-model = PINN(layers, 0, 12.5).to(device)
+model = PINN(layers, 2, t2).to(device)
 
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001, betas=(0.9, 0.9))
 
@@ -196,7 +196,7 @@ def ground_state(x, t):
 
 history = model.train_model(optimizer, scheduler, ground_state, 150000)
 
-torch.save(model.state_dict(), "Schrodinger-PINN/src/results/norm/model_55.pth")
+torch.save(model.state_dict(), "Schrodinger-PINN/src/results/movement/model_9.pth")
 
-with open("Schrodinger-PINN/src/results/norm/history_55.json", "w") as f:
+with open("Schrodinger-PINN/src/results/movement/history_9.json", "w") as f:
     json.dump(history, f)

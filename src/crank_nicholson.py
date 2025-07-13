@@ -15,11 +15,17 @@ c = c_SI * ps / nm
 hbar = hbar_SI / (meV * ps)
 m = me_SI * c_SI ** 2 / meV / c ** 2
 omega = 2 / hbar
-vQD = 15
+vQD = 20
 
 x_min, x_max = -75, 150
-t_min, t_max = 0, 12.5
-Nx, Nt = 5000, 5000
+x0 = 0
+x1 = 75
+
+t1 = 2
+t2 = t1 + (x1 - x0) / vQD
+
+t_min, t_max = t1, t2
+Nx, Nt = 2000, 2000
 
 x_values = np.linspace(x_min, x_max, Nx)
 t_values = np.linspace(t_min, t_max, Nt)
@@ -85,13 +91,13 @@ for t_i in range(1, Nt):
     if norm > 0:
         psi /= norm
     else:
-        print(f"❌ Zero norm at step {t_i}")
+        print(f"Zero norm at step {t_i}")
         break
 
     psi_real_analytical[:, t_i] = np.real(psi)
     psi_img_analytical[:, t_i] = np.imag(psi)
 
-np.savez("Schrodinger-PINN/src/results/analytical/crank_t12.npz",
+np.savez("Schrodinger-PINN/src/results/analytical/crank_movement_vQD20.npz",
          real=psi_real_analytical,
          img=psi_img_analytical,
          x_values=x_values,

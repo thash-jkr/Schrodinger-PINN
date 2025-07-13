@@ -19,7 +19,7 @@ vQD = 15
 x_min, x_max = -50, 50
 t_min, t_max = 0, 10
 Nx, Nt = 1000, 1000
-t0, t1 = 2, 7
+t0, t1 = 0, 5
 omega0, omega1 = .5 / hbar, 2 / hbar
 
 x_values = np.linspace(x_min, x_max, Nx)
@@ -45,7 +45,7 @@ def first_state(x):
     return A * B * C * D
 
 psi = ground_state(x_values)
-norm = np.sqrt(np.sum(np.abs(psi)**2) * dx)
+norm = np.sqrt(np.sum(np.abs(psi) ** 2) * dx)
 psi /= norm
 
 psi_real_analytical = np.zeros((Nx, Nt), dtype=np.float64)
@@ -88,13 +88,13 @@ for t_i in range(1, Nt):
     if norm > 0:
         psi /= norm
     else:
-        print(f"❌ Zero norm at step {t_i}")
+        print(f"Zero norm at step {t_i}")
         break
 
     psi_real_analytical[:, t_i] = np.real(psi)
     psi_img_analytical[:, t_i] = np.imag(psi)
 
-np.savez("Schrodinger-PINN/src/results/analytical/crank_omega.npz",
+np.savez("Schrodinger-PINN/src/results/analytical/crank_omega_0-5.npz",
          real=psi_real_analytical,
          img=psi_img_analytical,
          x_values=x_values,

@@ -30,8 +30,8 @@ t2 = t1 + (x1 - x0) / vQD
 
 x_min = -75
 x_max = 150
-t_min = 0
-t_max = 20
+t_min = 2
+t_max = t2
 
 # device
 if torch.backends.mps.is_available():
@@ -106,7 +106,7 @@ class PINN(nn.Module):
         t_boundary_torch = torch.from_numpy(t_boundary).float().to(device)
         
         x_norm_torch = torch.from_numpy(x_norm).float().to(device).repeat(20)
-        t_norm_torch = torch.arange(1, 21, device=device).float().repeat_interleave(self.n_norm)
+        t_norm_torch = torch.arange(2.1, 7, .25, device=device).float().repeat_interleave(self.n_norm)
     
         return x_collocation_torch, t_collocation_torch, x_initial_torch, t_initial_torch, x_boundary_torch, t_boundary_torch, x_norm_torch, t_norm_torch
 
@@ -151,7 +151,7 @@ class PINN(nn.Module):
         
         
         
-        #normalization loss
+        #normalization loss 
         u_n, v_n = self((x_norm_torch, t_norm_torch))
         psi_sq = u_n ** 2 + v_n ** 2
         psi_sq = psi_sq.view(20, self.n_norm)
@@ -195,10 +195,10 @@ class PINN(nn.Module):
 
         return history
 
-layers = [2, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 2]
+layers = [2, 512, 512, 512, 512, 512, 512, 2]
 
 # Model setup
-model = PINN(layers, 0, 20).to(device)
+model = PINN(layers, 2, 7).to(device)
 
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001, betas=(0.9, 0.9))
 
@@ -215,7 +215,7 @@ def ground_state(x, t):
 
 history = model.train_model(optimizer, scheduler, ground_state, 150000)
 
-torch.save(model.state_dict(), "Schrodinger-PINN/src/results/norm/model_59.pth")
+torch.save(model.state_dict(), "Schrodinger-PINN/src/results/movement/model_6.pth")
 
-with open("Schrodinger-PINN/src/results/norm/history_59.json", "w") as f:
+with open("Schrodinger-PINN/src/results/movement/history_6.json", "w") as f:
     json.dump(history, f)
