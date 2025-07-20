@@ -15,7 +15,7 @@ c = c_SI * ps / nm
 hbar = hbar_SI / (meV * ps)
 m = me_SI * c_SI ** 2 / meV / c ** 2
 omega = 2 / hbar
-vQD = 20
+vQD = 120
 
 x_min, x_max = -75, 150
 x0 = 0
@@ -24,8 +24,8 @@ x1 = 75
 t1 = 2
 t2 = t1 + (x1 - x0) / vQD
 
-t_min, t_max = t1, t2
-Nx, Nt = 2000, 2000
+t_min, t_max = 0, 10
+Nx, Nt = 25000, 25000
 
 x_values = np.linspace(x_min, x_max, Nx)
 t_values = np.linspace(t_min, t_max, Nt)
@@ -62,7 +62,7 @@ I = sp.eye(Nx, format='csc')
 
 def quantum_center(t_values):
     xqd_arr = np.zeros_like(t_values)
-    x0, x1, t1 = 0, 75, 2
+    
     for i, t in enumerate(t_values):
         if t < t1:
             xqd_arr[i] = x0
@@ -86,7 +86,7 @@ for t_i in range(1, Nt):
 
     psi = spla.spsolve(A, B @ psi)
 
-    norm = np.sqrt(np.sum(np.abs(psi)**2) * dx)
+    norm = np.sqrt(np.sum(np.abs(psi) ** 2) * dx)
     
     if norm > 0:
         psi /= norm
@@ -97,7 +97,7 @@ for t_i in range(1, Nt):
     psi_real_analytical[:, t_i] = np.real(psi)
     psi_img_analytical[:, t_i] = np.imag(psi)
 
-np.savez("Schrodinger-PINN/src/results/analytical/crank_movement_vQD20.npz",
+np.savez("Schrodinger-PINN/src/results/analytical/base_complex/crank_v120.npz",
          real=psi_real_analytical,
          img=psi_img_analytical,
          x_values=x_values,
