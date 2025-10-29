@@ -1,4 +1,5 @@
 .intern/
+.venv/
 temp.*
 *.png
 *.mp4
@@ -6,3 +7,5 @@ misc/
 .DS*
 src/results/
 phoenix/
+.DS_Store
+.vscode/
