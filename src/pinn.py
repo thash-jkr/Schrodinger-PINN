@@ -20,7 +20,7 @@ me = me_SI * c_SI**2 / meV / c**2
 hbar = hbar_meV_ps
 m = me
 omega = 2 / hbar
-vQD = 75
+vQD = 15
 
 x0 = 0
 x1 = 75
@@ -31,7 +31,7 @@ t2 = t1 + (x1 - x0) / vQD
 x_min = -75
 x_max = 150
 t_min = 0
-t_max = 10
+t_max = 20
 
 # device
 if torch.backends.mps.is_available():
@@ -84,7 +84,7 @@ class PINN(nn.Module):
     def generator(self, T_min, T_max):
         t_collocation = np.random.uniform(T_min, T_max, self.n_collocation)
         x_qd_collocation = np.where(t_collocation < t1, x0, np.where(t_collocation < t1 + (x1 - x0) / vQD, x0 + vQD * (t_collocation - t1), x1))
-        x_collocation = np.random.normal(loc=x_qd_collocation, scale=50.0, size=self.n_collocation)
+        x_collocation = np.random.normal(loc=x_qd_collocation, scale=25.0, size=self.n_collocation)
     
         x_c = 0
         x_initial = np.random.normal(loc=x_c, scale=25.0, size=self.n_initial)
@@ -176,10 +176,10 @@ class PINN(nn.Module):
 
         return history
 
-layers = [2, 512, 512, 512, 512, 512, 512, 2]
+layers = [2, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 2]
 
 # Model setup
-model = PINN(layers, 0, 10).to(device)
+model = PINN(layers, 0, 20).to(device)
 
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001, betas=(0.9, 0.9))
 
@@ -194,9 +194,9 @@ scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=exp_decay)
 def ground_state(x, t):
     return (((m * omega) / (np.pi * hbar)) ** 0.25) * torch.exp(((-m * omega) / (2 * hbar)) * (x ** 2)), 0
 
-history = model.train_model(optimizer, scheduler, ground_state, 150000)
+history = model.train_model(optimizer, scheduler, ground_state, 250000)
 
-torch.save(model.state_dict(), "Schrodinger-PINN/src/results/movement/model_11.pth")
+torch.save(model.state_dict(), "Schrodinger-PINN/src/results/movement/model_19.pth")
 
-with open("Schrodinger-PINN/src/results/movement/history_11.json", "w") as f:
+with open("Schrodinger-PINN/src/results/movement/history_19.json", "w") as f:
     json.dump(history, f)

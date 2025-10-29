@@ -129,7 +129,7 @@ class PINN(nn.Module):
         cumulative_loss = 0
         physics_loss = 0
         segments = 20
-        width = 5 / segments
+        width = (self.t_max - self.t_min) / segments
         
         for k in range(segments):
             t_start = self.t_min + k * width

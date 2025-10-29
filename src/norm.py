@@ -106,7 +106,7 @@ class PINN(nn.Module):
         t_boundary_torch = torch.from_numpy(t_boundary).float().to(device)
         
         x_norm_torch = torch.from_numpy(x_norm).float().to(device).repeat(20)
-        t_norm_torch = torch.arange(2.1, 7, .25, device=device).float().repeat_interleave(self.n_norm)
+        t_norm_torch = torch.arange(1, 21, device=device).float().repeat_interleave(self.n_norm)
     
         return x_collocation_torch, t_collocation_torch, x_initial_torch, t_initial_torch, x_boundary_torch, t_boundary_torch, x_norm_torch, t_norm_torch
 
