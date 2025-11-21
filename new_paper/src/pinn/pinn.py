@@ -172,7 +172,7 @@ class PINN(nn.Module):
             optimizer.zero_grad()
             
             physics_loss, initial_condition_loss, boundary_condition_loss = self.loss_function(initial_condition, *self.generator())
-            total_loss = 8 * physics_loss + initial_condition_loss + boundary_condition_loss
+            total_loss = physics_loss + initial_condition_loss + boundary_condition_loss
             
             total_loss.backward()
             optimizer.step()
