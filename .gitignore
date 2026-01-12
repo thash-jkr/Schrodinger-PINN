@@ -9,3 +9,4 @@ src/results/
 phoenix/
 .DS_Store
 .vscode/
+*.npz
