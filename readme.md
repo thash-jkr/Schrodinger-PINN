@@ -1,0 +1,1 @@
+# Physics-Informed Neural Networks to solve the time-dependent Schrodinger equation
